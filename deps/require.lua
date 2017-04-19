@@ -33,7 +33,6 @@ local os = require('ffi').os
 local uv = require('uv')
 
 local realRequire = _G.require
-
 local tmpBase = os == "Windows" and (env.get("TMP") or uv.cwd()) or
                                     (env.get("TMPDIR") or '/tmp')
 local binExt = os == "Windows" and ".dll" or ".so"
@@ -177,6 +176,12 @@ local function moduleRequire(base, name)
         mod, path, key = fixedRequire(pathJoin(base, "deps", name))
         if mod then return mod, path, key end
       end
+      -- try to load classic lua module from bundle:/lua
+      if isDir(pathJoin(base, "lua")) then
+        local lname = name:gsub('%.', '/')
+        mod, path, key = fixedRequire(pathJoin(base, "lua", lname))
+        if mod then return mod, path, key end
+      end
     end
 
     if base == "bundle:" then
@@ -189,6 +194,16 @@ local function moduleRequire(base, name)
       -- Otherwise, keep going higher
       base = pathJoin(base, "..")
     end
+  end
+  -- Look in bundle first to avoid conflicts when developing luvi apps.
+  if not base:match("^bundle:/*") then
+    local mod, path, key
+    mod, path, key = moduleRequire("bundle:", name)
+    if mod then return mod, path, key end
+    mod, path, key = moduleRequire(uv.cwd(), name)
+    if mod then return mod, path, key end
+  else
+    return realRequire(name)
   end
 end
 
