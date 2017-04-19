@@ -18,6 +18,7 @@ limitations under the License.
 
 local tap = require("tap")
 local uv = require("uv")
+local colorize = require('pretty-print').colorize
 
 local req = uv.fs_scandir("tests")
 
@@ -39,4 +40,12 @@ while true do
 end
 
 -- run the tests!
-tap(true)
+local function report(fails)
+  for i=1,#fails do
+    local v = fails[i]
+    print(v.id, colorize("failure",v.test.name)..' fails because:')
+    print(colorize('err',v.error))
+  end
+end
+
+tap(true, report)
