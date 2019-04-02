@@ -143,9 +143,18 @@ function Credential:setCA(certs)
 end
 
 function Credential:setKeyCert(key, cert)
-  key = assert(openssl.pkey.read(key, true))
-  cert = assert(openssl.x509.read(cert))
-  self.context:use(key, cert)
+  if type(key)=='string' then
+    key = assert(openssl.pkey.read(key, true))
+    cert = assert(openssl.x509.read(cert))
+    assert(self.context:use(key, cert))
+  else
+    local k = assert(openssl.pkey.read(key[1], true))
+    local c = assert(openssl.x509.read(cert[1]))
+    assert(self.context:use(k, c, true))
+    k = assert(openssl.pkey.read(key[2], true))
+    c = assert(openssl.x509.read(cert[2]))
+    assert(self.context:use(k, c, false))
+  end
 end
 
 
