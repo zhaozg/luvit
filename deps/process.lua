@@ -131,7 +131,7 @@ local function exit(self, code)
     left = left - 1
     if left > 0 then return end
     self:emit('exit', code)
-    os.exit(code)
+    os.exit(code, true)
   end
   process.stdout:once('finish', onFinish)
   process.stdout:_end()

@@ -133,7 +133,7 @@ local function run()
   end)
   uv.run()
 
-  os.exit(-failed)
+  os.exit(-failed, true)
 end
 
 local single = true
