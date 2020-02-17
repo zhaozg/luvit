@@ -21,15 +21,12 @@ server:listen(128, function(err)
     if err then
       print("Client read error: " .. err)
       client:close()
+      return
     end
 
     -- If data is set the client has sent data, if unset the client has disconnected
     if data then
       client:write(data)
-    else
-      print("Client disconnected")
-      client:close()
     end
-
   end)
 end)

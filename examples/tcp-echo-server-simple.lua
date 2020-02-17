@@ -6,7 +6,7 @@ local server = net.createServer(function(client)
   -- Add some listenners for incoming connection
   client:on("error",function(err)
     print("Client read error: " .. err)
-    client:close()
+    client:destroy()
   end)
 
   client:on("data",function(data)
