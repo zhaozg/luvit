@@ -14,6 +14,27 @@
   }
 ]]
 
+-- try use cjson
+local function prequire(mod)
+  local ok, m = pcall(require, mod)
+  if not ok then return nil, m end
+  return m
+end
+
+local cjson = prequire "cjson.safe"
+if cjson and cjson.encode_empty_table_as_object then
+  cjson.encode_empty_table_as_object(false)
+
+  cjson.null = setmetatable ({}, {
+    __tojson = function () return "null" end
+  })
+  cjson.parse = cjson.decode
+  cjson.stringify = function(obj)
+    if obj==nil then return 'null' end
+    return cjson.encode(obj)
+  end
+end
+
 -- Module options:
 local always_try_using_lpeg = true
 local register_global_module_table = false
