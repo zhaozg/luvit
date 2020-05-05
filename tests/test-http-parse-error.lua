@@ -56,11 +56,12 @@ require('tap')(function (test)
       end)
 
       req:on("error", function(err)
-        msg = tostring(err)
+        local msg = tostring(err)
 
         caughtErrors = caughtErrors + 1
 
-        if msg:find('expected HTTP data') then
+        if msg:find('expected HTTP data') or
+          msg:find('invalid constant string') then
           gotParseError = true
           running = false
           req:destroy()

@@ -35,33 +35,37 @@ limitations under the License.
 
 local net = require('net')
 local url = require('url')
+local Emitter = require('core').Emitter
 local codec = require('http-codec')
 local Writable = require('stream').Writable
 local date = require('os').date
 local luvi = require('luvi')
 local utils = require('utils')
 local httpHeader = require('http-header')
+local HttpDecoder = require('http-decoder')
 
-local IncomingMessage = net.Socket:extend()
+local IncomingMessage = Emitter:extend()
 
 function IncomingMessage:initialize(head, socket)
-  net.Socket.initialize(self)
   self.httpVersion = tostring(head.version)
   self.headers = httpHeader.getHeaders(head)
+  self.socket = socket
   if head.method then
     -- server specific
     self.method = head.method
     self.url = head.path
+    self.upgrade = head.upgrade
   else
     -- client specific
     self.statusCode = head.code
     self.statusMessage = head.reason
   end
-  self.socket = socket
 end
-
-function IncomingMessage:_read()
-  self.socket:resume()
+function IncomingMessage:write(data, cb)
+  return self.socket:write(data, cb)
+end
+function IncomingMessage:done()
+  return self.socket:done()
 end
 
 local ServerResponse = Writable:extend()
@@ -163,6 +167,7 @@ function ServerResponse:flushHeaders()
   end
   head.code = statusCode
   local h = self.encode(head)
+  print('hhh', h)
   self.socket:write(h)
 end
 
@@ -212,13 +217,11 @@ end
 local function handleConnection(socket, onRequest)
 
   -- Initialize the two halves of the stateful decoder and encoder for HTTP.
-  local decode = codec.decoder()
+  local decode = HttpDecoder:new('request')
 
-  local buffer = ""
   local req, res
 
   local function flush()
-    req:push()
     req = nil
   end
 
@@ -232,62 +235,58 @@ local function handleConnection(socket, onRequest)
     if req then flush() end
   end
 
-  local function onData(chunk)
-    -- Run the chunk through the decoder by concatenating and looping
-    buffer = buffer .. chunk
-    while true do
-      local R, event, extra = pcall(decode,buffer)
-      if R then
-        -- nil extra means the decoder needs more data, we're done here.
-        if not extra then break end
-        -- Store the leftover data.
-        buffer = extra
-        if type(event) == "table" then
-          -- If there was an old request that never closed, end it.
-          if req then flush() end
-          -- Create a new request object
-          req = IncomingMessage:new(event, socket)
-          -- Create a new response object
-          res = ServerResponse:new(socket)
-          res.keepAlive = event.keepAlive
+  decode:on('error', function(name, desc)
+    if req then
+      req:emit('error', desc)
+      flush()
+    end
+    socket:_end()
+  end)
 
-          -- If the request upgrades the protocol then detatch the listeners so http codec is no longer used
-          if req.headers.upgrade then
-            req.is_upgraded = true
-            socket:setTimeout(0)
-            socket:removeListener("timeout", onTimeout)
-            socket:removeListener("data", onData)
-            socket:removeListener("end", onEnd)
-            if #buffer > 0 then
-              socket:pause()
-              socket:unshift(buffer)
-            end
-            onRequest(req, res)
-            break
-          else
-            -- Call the user callback to handle the request
-            onRequest(req, res)
-          end
-        elseif req and type(event) == "string" then
-          if #event == 0 then
-            -- Empty string in http-decoder means end of body
-            -- End the request stream and remove the req reference.
-            flush()
-          else
-            -- Forward non-empty body chunks to the req stream.
-            if not req:push(event) then
-              -- If it's queue is full, pause the source stream
-              -- This will be resumed by IncomingMessage:_read
-              socket:pause()
-            end
-          end
-        end
-      else
-        socket:emit('error',event)
-        break
+  decode:on('data', function(data)
+    req:emit('data', data)
+  end)
+
+  decode:on('end', function()
+    req:emit('end')
+  end)
+
+  local function onData(chunk)
+    decode:execute(chunk)
+  end
+
+  decode:on('request', function(head)
+    -- If there was an old request that never closed, end it.
+    if req then flush() end
+
+    -- Create a new request object
+    req = IncomingMessage:new(head)
+    -- Create a new response object
+    res = ServerResponse:new(socket)
+    res.keepAlive = head.keepAlive
+
+    if req.method == 'CONNECT' or req.upgrade then
+      local evt = req.method == 'CONNECT' and 'connect' or 'upgrade'
+      if req:listenerCount(evt) > 0 then
+        socket:removeListener('data', onData)
+        socket:removeListener('end', flush)
+        socket:read(0)
+        return req:emit(evt, res, socket, evt)
+      elseif req.method == 'CONNECT' or res.statusCode == 101 then
+        onRequest(req, res)
+        return
       end
     end
-  end
+
+    res.send = function(self, data, callback)
+      data = self.encode and self.encode(data) or data
+      return self.socket:write(data, callback or function() end)
+    end
+
+    -- Call the user callback to handle the request
+    onRequest(req, res)
+  end)
+
   socket:once('timeout', onTimeout)
   -- set socket timeout
   socket:setTimeout(120000)
@@ -347,18 +346,16 @@ function ClientRequest:initialize(options, callback)
   self.connection = connection_found
 
   self.encode = codec.encoder()
-  self.decode = codec.decoder()
+  self.decode = HttpDecoder:new('response')
 
   if callback then
     self:once('response', callback)
   end
 
-  local buffer = ''
   local res, keepAlive
 
   local function flush()
     if res then
-      res:push()
       res = nil
     end
   end
@@ -373,68 +370,53 @@ function ClientRequest:initialize(options, callback)
     self.connected = true
     self:emit('socket', socket)
 
-    local function onData(chunk)
-      -- Run the chunk through the decoder by concatenating and looping
-      buffer = buffer .. chunk
-      while true do
-        local R, event, extra = pcall(self.decode,buffer)
-        if R==true then
-          -- nil extra means the decoder needs more data, we're done here.
-          if not extra then return end
-          -- Store the leftover data.
-          buffer = extra
-          if type(event) == "table" then
-            if not res then
-              flush()
-              res = IncomingMessage:new(event, socket)
-            end
-            if self.method == 'CONNECT' or res.headers.upgrade then
-              local evt = self.method == 'CONNECT' and 'connect' or 'upgrade'
-              if self:listenerCount(evt) > 0 then
-                socket:removeListener('data', onData)
-                socket:removeListener('end', flush)
-                socket:read(0)
-                if #buffer > 0 then
-                  socket:pause()
-                  socket:unshift(buffer)
-                end
-                return self:emit(evt, res, socket, event)
-              elseif self.method == 'CONNECT' or res.statusCode == 101 then
-                return self:destroy()
-              end
-              -- Whether the server supports keepAlive connection
-              keepAlive = string.lower(res.headers['Connection'])=='keep-alive'
-              -- Call the user callback to handle the response
-              if callback then
-                callback(res)
-              end
-              self:emit('response', res)
-              if is_upgraded then
-                break
-              end
-            end
-            self:emit('response', res)
-          elseif res and type(event) == "string" then
-            if #event == 0 then
-              -- Empty string in http-decoder means end of body
-              -- End the res stream and remove the res reference.
-              flush()
-            else
-              -- Forward non-empty body chunks to the res stream.
-              if not res:push(event) then
-                -- If it's queue is full, pause the source stream
-                -- This will be resumed by IncomingMessage:_read
-                socket:pause()
-              end
-            end
-          end
-        else
-          return self:emit('error', event)
-        end
+    local function onEnd()
+      -- Just in case the stream ended and we still had an open response,
+      -- end it.
+      if res then flush() end
+    end
+
+    self.decode:on('data', function(data)
+      res:emit('data', data)
+    end)
+    self.decode:on('end', function()
+      res:emit('end')
+    end)
+    self.decode:on('error', function(name, desc)
+      self:emit('error', desc)
+      if res then
+        res:emit('error', desc)
       end
+      socket:_end()
+    end)
+
+    local function onData(chunk)
+      self.decode:execute(chunk)
     end
     socket:on('data', onData)
     socket:on('end', flush)
+
+    self.decode:on('response', function(head)
+      if res then flush() end
+      -- Create a new response object
+      res = IncomingMessage:new(head)
+      if self.method == 'CONNECT' or res.headers.upgrade then
+        local evt = self.method == 'CONNECT' and 'connect' or 'upgrade'
+        if self:listenerCount(evt) > 0 then
+          socket:removeListener("data", onData)
+          socket:removeListener("end", onEnd)
+          socket:read(0)
+
+          return self:emit(evt, res, socket, evt)
+        elseif self.method == 'CONNECT' or res.statusCode == 101 then
+          return self:destroy()
+        end
+      end
+      -- Whether the server supports keepAlive connection
+      keepAlive = string.lower(res.headers['Connection'])=='keep-alive'
+      -- Call the user callback to handle the response
+      self:emit('response', res)
+    end)
 
     if self.ended then
       return self:_done(self.ended.data, self.ended.cb)

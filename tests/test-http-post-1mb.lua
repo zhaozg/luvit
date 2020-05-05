@@ -50,8 +50,7 @@ require('tap')(function(test)
     server:listen(PORT, HOST, function()
       local headers = {
         {'bar', 'cats'},
-        {'Content-Length', MB},
-        {'Transfer-Encoding', 'chunked'}
+        {'Content-Length', MB}
       }
       local body = {}
       local req = http.request({

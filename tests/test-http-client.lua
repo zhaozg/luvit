@@ -78,7 +78,7 @@ require('tap')(function(test)
     server = http.createServer(expect(function(req, res)
       print('server request', req.method)
       assert(req.method == 'GET')
-      assert(req.url == 'test_path')
+      assert(req.url == '/test_path')
       -- advertise HTTP/2 support
       res:setHeader('Upgrade', 'h2,h2c')
       return res:finish('response')
@@ -89,7 +89,7 @@ require('tap')(function(test)
       local options = {
         host = '127.0.0.1',
         port = port,
-        path = 'test_path',
+        path = '/test_path',
       }
 
       local req = http.request(options, function(res)
@@ -117,7 +117,7 @@ require('tap')(function(test)
     server = http.createServer(expect(function(req, res)
       print('server request', req.method)
       assert(req.method == 'GET')
-      assert(req.url == 'test_path')
+      assert(req.url == '/test_path')
       assert(req.headers.upgrade == 'websocket')
       res:writeHead(101, {
         ['Upgrade'] = 'websocket',
@@ -141,7 +141,7 @@ require('tap')(function(test)
       local options = {
         host = '127.0.0.1',
         port = port,
-        path = 'test_path',
+        path = '/test_path',
         headers = {
           ['Upgrade'] = 'websocket',
           ['Connection'] = 'Upgrade',
@@ -175,7 +175,7 @@ require('tap')(function(test)
     server = http.createServer(expect(function(req, res)
       print('server request', req.method)
       assert(req.method == 'CONNECT')
-      assert(req.url == 'test_path')
+      assert(req.url == '/test_path')
       -- TODO: CONNECT should be detached from http codec.
       return res:finish('response')
     end))
@@ -186,7 +186,7 @@ require('tap')(function(test)
         host = '127.0.0.1',
         port = port,
         method = 'CONNECT',
-        path = 'test_path',
+        path = '/test_path',
       }
 
       local req = http.request(options, function(res)
@@ -195,7 +195,7 @@ require('tap')(function(test)
 
       req:once('connect', expect(function(res, socket, event)
         print('req connect')
-        socket:on('data', function(data)
+        res:on('data', function(data)
           print('socket data')
           assert(data)
           assert(data:find('response'))
