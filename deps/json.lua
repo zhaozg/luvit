@@ -33,6 +33,7 @@ if cjson and cjson.encode_empty_table_as_object then
     if obj==nil then return 'null' end
     return cjson.encode(obj)
   end
+  return cjson
 end
 
 -- Module options:
