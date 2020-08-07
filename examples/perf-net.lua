@@ -56,11 +56,19 @@ end
 
 if mode==nil or mode:match('c') then
   local client
+  if mode:match('c') then
+    local interval = timer.setInterval(1000, function ()
+      print(string.format(">Sent:%04.02f MB /%06d <Recv:%04.02f MB /%06d", _isent/_1M, _csent, _irecv/_1M, _crecv))
+      _irecv, _isent, _crecv, _csent = 0, 0, 0, 0
+    end)
+  end
   client = net.createConnection({port=1234, host='127.0.0.1', nodelay=true}, function (err)
     if err then error(err) end
 
     print("Connected...")
     client:on("data",function(data)
+      _irecv = _irecv + #data
+      _crecv = _crecv + 1
       client:write(data)
     end)
 

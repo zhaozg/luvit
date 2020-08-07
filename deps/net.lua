@@ -54,6 +54,7 @@ function Socket:initialize(options)
     local typ = uv.guess_handle(options.fd);
     if typ == 'TCP' then
       self._handle = uv.new_tcp()
+      uv.set_nodelay(self._handle, true)
     elseif typ == 'PIPE' then
       self._handle = uv.new_pipe()
     end
