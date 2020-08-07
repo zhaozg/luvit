@@ -147,7 +147,9 @@ function Socket:shutdown(callback)
 end
 
 function Socket:nodelay(enable)
-  uv.tcp_nodelay(self._handle, enable)
+  if self._handle then
+    uv.tcp_nodelay(self._handle, enable)
+  end
 end
 
 function Socket:keepalive(enable, delay)
@@ -215,6 +217,10 @@ function Socket:connect(...)
 
   if not self._handle then
     self._handle = uv.new_tcp()
+  end
+  if options.nodelay then
+    print('enable nodelay')
+    uv.tcp_nodelay(self._handle, true)
   end
 
   local _, derr = uv.getaddrinfo(options.host, options.port, { socktype = "stream" }, function(err, res)
@@ -326,6 +332,7 @@ function Server:listen(port, ... --[[ ip, callback --]] )
   ip = ip or '0.0.0.0'
 
   self._handle:bind(ip, port)
+  self._handle:nodelay(true)
   self._handle:listen()
   self._handle:on('connection', function(client)
     self:emit('connection', client)

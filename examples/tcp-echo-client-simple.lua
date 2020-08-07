@@ -15,5 +15,5 @@ client = net.createConnection(1234, '127.0.0.1', function (err)
   client:on("data",function(data) -- or 'client:pipe(process.stdout)'
     process.stdout:write(data)
   end)
-  
+
 end)
