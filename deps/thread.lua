@@ -93,8 +93,8 @@ local function work(thread_func, notify_entry)
     end
 
     --try to find cached function entry
-    local fn
-    if not _G._uv_works[dumped] then
+    local fn = rawget(_G._uv_works, dumped)
+    if not fn  then
       fn = loadstring(dumped)
 
       -- Convert paths back to table
@@ -114,8 +114,6 @@ local function work(thread_func, notify_entry)
 
       -- cache it
       _G._uv_works[dumped] = fn
-    else
-      fn = _G._uv_works[dumped]
     end
     -- Run function
 
