@@ -29,7 +29,8 @@ module.
   tags = {"luvit", "objects", "inheritance"}
 ]]
 local core = {}
-
+local type = type
+local insert, remove = table.insert, table.remove
 
 --[[
 Returns whether obj is instance of class or not.
@@ -208,7 +209,7 @@ function Emitter:on(name, callback)
     handlers_for_type = {}
     rawset(handlers, name, handlers_for_type)
   end
-  table.insert(handlers_for_type, callback)
+  insert(handlers_for_type, callback)
   return self
 end
 
@@ -249,7 +250,7 @@ function Emitter:emit(name, ...)
   end
   for i = #handlers_for_type, 1, -1 do
     if not handlers_for_type[i] then
-      table.remove(handlers_for_type, i)
+      remove(handlers_for_type, i)
     end
   end
   return self
