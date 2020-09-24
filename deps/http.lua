@@ -360,7 +360,11 @@ function ClientRequest:initialize(options, callback)
     end
   end
 
-  local socket = options.socket or net.createConnection(self.port, self.host)
+  local socket = options.socket or net.createConnection({
+      nodelay = true,
+      port = self.port,
+      host = self.host
+  })
   local connect_emitter = options.connect_emitter or 'connect'
 
   self.socket = socket
@@ -422,6 +426,7 @@ function ClientRequest:initialize(options, callback)
       if keepAlive then
         socket:removeListener('data', onData)
         socket:removeListener('end', onEnd)
+        socket:removeListener('end', flush)
         socket:removeListener('error', onError)
         socket:removeListener(connect_emitter, onConnect)
         return socket
@@ -434,7 +439,11 @@ function ClientRequest:initialize(options, callback)
   end
 
   socket:on('error', onError)
-  socket:on(connect_emitter, onConnect)
+  if socket._connecting then
+    socket:on(connect_emitter, onConnect)
+  else
+    onConnect()
+  end
 end
 
 function ClientRequest:flushHeaders()
