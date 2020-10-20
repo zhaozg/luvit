@@ -417,18 +417,20 @@ function ClientRequest:initialize(options, callback)
         end
       end
       -- Whether the server supports keepAlive connection
-      keepAlive = string.lower(res.headers['Connection'])=='keep-alive'
+      keepAlive = res.headers['Connection']
+      if keepAlive then
+        keepAlive = keepAlive:lower() == 'keep-alive'
+      end
       -- Call the user callback to handle the response
       self:emit('response', res, self)
     end)
 
     self.reset = function()
       if keepAlive then
-        socket:removeListener('data', onData)
-        socket:removeListener('end', onEnd)
-        socket:removeListener('end', flush)
-        socket:removeListener('error', onError)
-        socket:removeListener(connect_emitter, onConnect)
+        socket:removeAllListeners('data', true)
+        socket:removeAllListeners('end', true)
+        socket:removeAllListeners('error', true)
+        socket:removeAllListeners(connect_emitter, true)
         return socket
       end
     end

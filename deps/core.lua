@@ -288,14 +288,19 @@ end
 
 -- Remove all listeners
 --  @param {String?} name optional event name
-function Emitter:removeAllListeners(name)
+function Emitter:removeAllListeners(name, force_nil)
   local handlers = rawget(self, "handlers")
   if not handlers then return end
   if name then
     local handlers_for_type = rawget(handlers, name)
     if handlers_for_type then
       for i = #handlers_for_type, 1, -1 do
-          handlers_for_type[i] = false
+        if force_nil then
+          force_nil = nil
+        else
+          force_nil = false
+        end
+        handlers_for_type[i] = force_nil
       end
     end
   else

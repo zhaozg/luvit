@@ -24,7 +24,11 @@ local function onEnd()
   p(options.socket)
   i=i+1
   if (i<200) then
-    request(options, onEnd)
+    process.nextTick(function()
+      request(options, onEnd)
+    end)
+  else
+    options.socket:destroy()
   end
 end
 
