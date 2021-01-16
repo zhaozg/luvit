@@ -94,7 +94,7 @@ end
 local DEFAULT_CA_STORE
 do
   local data = assert(resource.load("root_ca.dat"))
-  DEFAULT_CA_STORE = openssl.x509.store:new()
+  DEFAULT_CA_STORE = openssl.x509.store.new({})
   local index = 1
   local len = #data
   while index < len do
@@ -128,7 +128,7 @@ end
 
 function Credential:setCA(certs)
   if not self.store then
-    self.store = openssl.x509.store:new()
+    self.store = openssl.x509.store.new({})
     self.context:cert_store(self.store)
   end
   if type(certs) == 'table' then
