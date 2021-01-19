@@ -36,10 +36,10 @@ local Editor = require('readline').Editor
 local History = require('readline').History
 
 local _builtinLibs = { 'buffer', 'childprocess', 'codec', 'core',
-  'dgram', 'dns', 'fs', 'helpful', 'hooks', 'http-codec', 'http',
-  'https', 'json', 'los', 'net', 'pretty-print',
+  'dgram', 'fs', 'helpful', 'hooks', 'http-codec', 'http',
+  'los', 'net', 'pretty-print',
   'querystring', 'readline', 'timer', 'url', 'utils',
-  'stream', 'tls', 'path'
+  'stream', 'path'
 }
 
 return function (stdin, stdout, greeting)

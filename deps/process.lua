@@ -124,14 +124,16 @@ local function removeListener(self, _type, listener)
   end
 end
 
-local function exit(self, code)
+local function exit(self, code, exit)
   local left = 2
   code = code or 0
   local function onFinish()
     left = left - 1
     if left > 0 then return end
     self:emit('exit', code)
-    os.exit(code, true)
+    if exit then
+      os.exit(code, true)
+    end
   end
   process.stdout:once('finish', onFinish)
   process.stdout:_end()
