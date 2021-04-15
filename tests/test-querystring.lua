@@ -30,7 +30,10 @@ require('tap')(function(test)
       local input = test[3]
       local output = test[2]
       local str = qs.stringify(input, test[4], test[5])
-      if not deepEqual(output, str) then
+      local token1 = qs.parse(test[1], test[4], test[5])
+      local token2 = qs.parse(str, test[4], test[5])
+      local token3 = qs.parse(str, test[4], test[5])
+      if not deepEqual(token1, token2) or not deepEqual(token1, token3) then
         p("Expected", output)
         p("But got", str)
         error("Test #" .. num .. " failed")
